@@ -9,26 +9,42 @@ contract RonxRegistration {
         string lastName;
         string email;
         string password;
-        string profilePic; // Added profile picture variable
+        string profilePic;
         string userId;
+        string uplineId; // Added upline ID field
         address walletAddress;
-        string referralLink; // Added referral link variable
+        string referralLink;
     }
 
     mapping(address => User) public users;
     address[] public userAddresses;
 
-    event UserRegistered(address indexed walletAddress, string userId, string referralLink);
+    event UserRegistered(address indexed walletAddress, string userId, string uplineId, string referralLink);
 
     constructor() {
         owner = msg.sender; // Set the contract deployer as the owner
     }
 
-    function registerUser(string memory _firstName, string memory _lastName, string memory _email, string memory _password, string memory _profilePic) public payable {
+    function registerUser(
+        string memory _firstName,
+        string memory _lastName,
+        string memory _email,
+        string memory _password,
+        string memory _profilePic,
+        string memory _uplineId // Upline ID parameter
+    ) public payable {
         require(bytes(users[msg.sender].userId).length == 0, "User already registered.");
         require(msg.value == 25 ether, "Registration requires at least 25 Ether.");
 
         string memory userId = generateUserId();
+
+        // Enforce upline ID requirement except for the first user
+        if (keccak256(abi.encodePacked(userId)) != keccak256(abi.encodePacked("1000001"))) {
+            require(bytes(_uplineId).length > 0, "Upline ID is required.");
+        } else {
+            _uplineId = ""; // No upline required for the first user
+        }
+
         string memory referralLink = generateReferralLink(userId);
 
         users[msg.sender] = User({
@@ -36,15 +52,16 @@ contract RonxRegistration {
             lastName: _lastName,
             email: _email,
             password: _password,
-            profilePic: _profilePic, // Store profile picture
+            profilePic: _profilePic,
             userId: userId,
+            uplineId: _uplineId, // Store upline ID
             walletAddress: msg.sender,
-            referralLink: referralLink // Store referral link
+            referralLink: referralLink
         });
 
         userAddresses.push(msg.sender);
         payable(owner).transfer(msg.value);
-        emit UserRegistered(msg.sender, userId, referralLink);
+        emit UserRegistered(msg.sender, userId, _uplineId, referralLink);
     }
 
     function generateUserId() internal view returns (string memory) {
